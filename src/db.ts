@@ -1,4 +1,4 @@
-import {Pool} from "pg";
+import {Pool, QueryResult} from "pg";
 import dotenv from "dotenv"
 import {GameState} from "spellbee";
 
@@ -31,23 +31,14 @@ pool.on('error', (err, client) => {
     console.error("Error: ", err)
 });
 
-async function create_game_row(outerLetters: string, middleLetter: string, validWords: string[], maxScore: number) {
-    return await query(SETUP_GAME_QUERY, [validWords, middleLetter, outerLetters, maxScore]);
+async function create_game_row(outerLetters: string, middleLetter: string, validWords: string[], maxScore: number): Promise<number> {
+    const result = await query(SETUP_GAME_QUERY, [validWords, middleLetter, outerLetters, maxScore]);
+    return result.rows[0].id;
 }
 
 async function get_game_by_id(id: number) {
     const result = await query(GET_GAME_QUERY, [id]);
-    const row = result.rows[0];
-    const game: GameDto = {
-        id: row.id,
-        valid_words: row.valid_words,
-        middle_letter: row.middle_letter,
-        outer_letters: row.outer_letters,
-        found_words: row.found_words,
-        score: row.score,
-        max_score: row.max_score
-    };
-    return game;
+    return to_game_dto(result);
 }
 
 async function update_row_after_word_found(game: GameState) {
@@ -61,4 +52,18 @@ async function query(text: string, values: any[]) {
     } catch (err) {
         console.log(err.stack)
     }
+}
+
+function to_game_dto(result: QueryResult<any>) {
+    const row = result.rows[0];
+    const game: GameDto = {
+        id: row.id,
+        valid_words: row.valid_words,
+        middle_letter: row.middle_letter,
+        outer_letters: row.outer_letters,
+        found_words: row.found_words,
+        score: row.score,
+        max_score: row.max_score
+    };
+    return game;
 }

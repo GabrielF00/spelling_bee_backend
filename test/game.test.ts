@@ -52,7 +52,7 @@ describe('Validate game logic', () => {
         assert.equal("QUEEN", get_current_rank(101, 101));
     });
     // it("test", () => {
-    //     setup_game("ecpoml", "t");
+    //     setup_game();
     // })
 
 });

@@ -1,10 +1,13 @@
 import fs from "fs";
 import {create_game_row, GameDto, get_game_by_id, update_row_after_word_found} from "./db";
 import {GameState, SubmitWordResponse} from "spellbee";
+import parse from "csv-parse/lib/sync"
 
 export { score_word, is_pangram, generate_word_list, setup_game, calculate_max_score };
 
 const DICT = load_dict();
+const GAMES = load_games();
+
 const RANKS = new Map([[0, "EGG"], [0.1, "LARVA"], [0.2, "PUPA"], [0.3, "WORKER"], [0.4, "DRONE"],
     [0.5, "POLLEN JOCK"], [0.75, "BEE GENIUS"], [1, "QUEEN"]]);
 
@@ -16,11 +19,32 @@ function load_dict() {
     }
 }
 
-async function setup_game(outerLetters: string, middleLetter: string) {
+function load_games() {
+    try {
+        const gameFile = fs.readFileSync("data/games.csv", "utf8");
+        return parse(gameFile, {columns: true});
+    } catch (err) {
+        throw new Error("Could not parse games file.");
+    }
+}
+
+async function setup_game() {
+    const gameNumber = Math.floor(Math.random() * GAMES.length);
+    const outerLetters = GAMES[gameNumber].outer_letters;
+    const middleLetter = GAMES[gameNumber].middle_letter;
     const validWords = generate_word_list(outerLetters.split(''), middleLetter);
     const maxScore = calculate_max_score(validWords, new Set([...outerLetters.split(''), middleLetter]));
-    const result = await create_game_row(outerLetters, middleLetter, validWords, maxScore);
-    console.log(result.rows[0]);
+    const gameId = await create_game_row(outerLetters, middleLetter, validWords, maxScore);
+    const gameState: GameState = {
+        id: gameId,
+        middle_letter: middleLetter,
+        outer_letters: outerLetters,
+        found_words: [],
+        score: 0,
+        max_score: maxScore,
+        rank: get_current_rank(0, maxScore)
+    }
+    return gameState;
 }
 
 export async function handleSubmitWord(gameId: number, word: string): Promise<SubmitWordResponse> {

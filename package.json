@@ -19,6 +19,7 @@
     "@types/pg": "^8.6.1",
     "@types/spellbee": "git+ssh://git@github.com/GabrielF00/spelling_bee_models.git",
     "cors": "^2.8.5",
+    "csv-parse": "^4.16.3",
     "dotenv": "^10.0.0",
     "express": "^4.17.1",
     "express-validator": "^6.12.1",
