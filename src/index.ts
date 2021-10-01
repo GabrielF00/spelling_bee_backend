@@ -9,7 +9,7 @@ const app = express();
 const port = 8080; // default port to listen
 
 const corsOptions = {
-    origin: 'http://localhost:3000',
+    origin: ['http://localhost:3000', 'https://bee-genius.onrender.com'],
     optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
 };
 
