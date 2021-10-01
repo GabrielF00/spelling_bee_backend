@@ -1,10 +1,11 @@
 {
   "name": "spellbee",
   "version": "1.0.0",
-  "description": "",
+  "description": "Backend of the spelling bee game.",
   "main": "dist/index.js",
   "scripts": {
     "update:packages": "npm install git+ssh://git@github.com/GabrielF00/spelling_bee_models.git",
+    "preinstall": "GITHUB_TOKEN=$(cut -d '=' -f2 .github_token) ; git config --global url.\"https://${GITHUB_TOKEN}@github.com/\".insteadOf https://git@github.com/",
     "prebuild": "tslint -c tslint.json -p tsconfig.json --fix",
     "build": "tsc",
     "prestart": "npm run build",
@@ -12,12 +13,13 @@
     "test": "mocha -r ts-node/register test/**/*.test.ts -r dotenv/config"
   },
   "keywords": [],
-  "author": "",
+  "author": "Gabriel Fishman",
   "license": "ISC",
   "dependencies": {
     "@types/cors": "^2.8.12",
     "@types/pg": "^8.6.1",
-    "@types/spellbee": "git+ssh://git@github.com/GabrielF00/spelling_bee_models.git",
+    "@types/spellbee": "git+https://git@github.com/GabrielF00/spelling_bee_models.git",
+    "ansi-regex": ">=5.0.1",
     "cors": "^2.8.5",
     "csv-parse": "^4.16.3",
     "dotenv": "^10.0.0",

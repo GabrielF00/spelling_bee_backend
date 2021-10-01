@@ -5,7 +5,8 @@ import {
     generate_word_list,
     calculate_max_score,
     setup_game,
-    get_current_rank
+    get_current_rank,
+    calculate_ranks
 } from "../src/game";
 import dotenv from "dotenv";
 
@@ -49,7 +50,33 @@ describe('Validate game logic', () => {
     it("current rank is calculated correctly", () => {
         assert.equal("EGG", get_current_rank(0, 101));
         assert.equal("LARVA", get_current_rank(11, 101));
+        assert.equal("GENIUS", get_current_rank(77, 101));
         assert.equal("QUEEN", get_current_rank(101, 101));
+        assert.equal("POLLINATOR", get_current_rank(172, 230));
+    });
+    it("test calculate ranks", () => {
+        const expected_ranks: Record<string, number> = {
+            'EGG': 0,
+            'LARVA': 11,
+            'PUPA': 21,
+            'WORKER': 31,
+            'DRONE': 41,
+            'POLLINATOR': 51,
+            'GENIUS': 76,
+            'QUEEN': 101
+        };
+        assert.deepStrictEqual(calculate_ranks(101), expected_ranks);
+        const expected_ranks2: Record<string, number> = {
+            'EGG': 0,
+            'LARVA': 23,
+            'PUPA': 46,
+            'WORKER': 69,
+            'DRONE': 92,
+            'POLLINATOR': 115,
+            'GENIUS': 173,
+            'QUEEN': 230
+        }
+        assert.deepStrictEqual(calculate_ranks(230), expected_ranks2);
     });
     // it("test", () => {
     //     setup_game();
