@@ -1,6 +1,13 @@
 import fs from "fs";
-import {create_game_row, GameDto, get_game_by_id, update_row_after_word_found} from "./db";
-import {GameState, SubmitWordResponse} from "spellbee";
+import {
+    create_game_row,
+    GAME_STATUS,
+    GameDto,
+    get_game_by_id,
+    update_row_after_word_found,
+    update_row_end_game
+} from "./db";
+import {GameWord, GameState, SubmitWordResponse, EndGameState} from "spellbee";
 import parse from "csv-parse/lib/sync"
 
 export { score_word, is_pangram, generate_word_list, setup_game, calculate_max_score };
@@ -48,19 +55,28 @@ async function setup_game() {
     return gameState;
 }
 
-export async function handleSubmitWord(gameId: number, word: string): Promise<SubmitWordResponse> {
+export async function handle_submit_word(gameId: number, word: string): Promise<SubmitWordResponse> {
     // TODO: make this a transaction
     const game = await get_game_by_id(gameId);
-    if (game.valid_words.includes(word)) {
-        if (game.found_words.includes(word)) {
+
+    if (game.status === GAME_STATUS.ENDED) {
+        return {
+            state: "failed",
+            error_message: "Game has ended"
+        };
+    }
+    const validWords = get_words_from_words_objs(game.valid_words);
+    const foundWords = get_words_from_words_objs(game.found_words);
+    if (validWords.includes(word)) {
+        if (foundWords.includes(word)) {
             return {
                 state: "failed",
                 error_message: "Word already found"
-            }
+            };
         }
         const isPangram = is_pangram(word, new Set([...game.outer_letters, game.middle_letter]));
         const score = score_word(word, isPangram);
-        game.found_words.push(word);
+        game.found_words.push({word, is_pangram: isPangram});
         game.score += score;
         const gameState: GameState = to_game_state(game);
         await update_row_after_word_found(gameState);
@@ -81,6 +97,20 @@ export async function handleSubmitWord(gameId: number, word: string): Promise<Su
     }
 }
 
+export async function end_game(gameId: number): Promise<EndGameState> {
+    const game = await update_row_end_game(gameId);
+    return {
+        response: {
+            game_state: to_game_state(game),
+            all_words: game.valid_words
+        }
+    };
+}
+
+function get_words_from_words_objs(foundWords: GameWord[]) {
+    return foundWords.map(fw => fw.word);
+}
+
 function to_game_state(game: GameDto) {
     const gameState: GameState = {
         id: game.id,
@@ -95,16 +125,22 @@ function to_game_state(game: GameDto) {
     return gameState;
 }
 
-function generate_word_list(outerLetters: string[], middleLetter: string) {
+function generate_word_list(outerLetters: string[], middleLetter: string): GameWord[] {
     const allLetters = outerLetters.join('') + middleLetter;
+    const letterSet = new Set(allLetters);
     const pattern = new RegExp(`^([${allLetters}])*${middleLetter}([${allLetters}])*$`);
-    return DICT.filter(word => pattern.test(word));
+    return DICT.filter(word => pattern.test(word)).map( word => {
+        return {
+            word,
+            is_pangram: is_pangram(word, letterSet)
+        }
+    });
 }
 
-function calculate_max_score(validWords: string[], letters: Set<string>) {
+function calculate_max_score(validWords: GameWord[], letters: Set<string>) {
     let score = 0;
     for (const word of validWords) {
-        score += score_word(word, is_pangram(word, letters));
+        score += score_word(word.word, is_pangram(word.word, letters));
     }
     return score;
 }

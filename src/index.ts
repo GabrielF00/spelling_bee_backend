@@ -1,8 +1,8 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv"
-import {handleSubmitWord, setup_game} from "./game";
-import {SubmitWordResponse} from "spellbee";
+import {end_game, handle_submit_word, setup_game} from "./game";
+import {EndGameState, SubmitWordResponse} from "spellbee";
 
 dotenv.config();
 const app = express();
@@ -25,9 +25,15 @@ app.post('/createGame', async (req, res) => {
 app.post('/submitWord', async (req, res) => {
     const gameId = req.body.gameId;
     const word = req.body.word;
-    const response: SubmitWordResponse = await handleSubmitWord(gameId, word);
+    const response: SubmitWordResponse = await handle_submit_word(gameId, word);
     res.json(response);
 });
+
+app.post('/endGame', async (req, res) => {
+    const gameId = req.body.gameId;
+    const response: EndGameState = await end_game(gameId);
+    res.json(response);
+})
 
 // start the Express server
 app.listen( port, () => {

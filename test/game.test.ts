@@ -43,7 +43,7 @@ describe('Validate game logic', () => {
         }
     });
     it("max score is calculated correctly", () => {
-        const valid_words = ['clot', 'collect', 'collet', 'colt', 'comet', 'compete', 'complete'];
+        const valid_words = ['clot', 'collect', 'collet', 'colt', 'comet', 'compete', 'complete'].map(word => { return {word: word, is_pangram: false}});
         const actual_max_score = calculate_max_score(valid_words, new Set(["e", "c", "p", "o", "m", "l", "t"]));
         assert.equal(actual_max_score, 42);
     });
