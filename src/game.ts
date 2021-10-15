@@ -1,13 +1,20 @@
 import fs from "fs";
 import {
     create_game_row,
-    GAME_STATUS,
     GameDto,
     get_game_by_id,
     update_row_after_word_found,
     update_row_end_game
 } from "./db";
-import {GameWord, GameState, SubmitWordResponse, EndGameState} from "spellbee";
+import {
+    EndGameState,
+    GAME_STATUS,
+    GameState,
+    GameType,
+    GameWord,
+    StartGameRequest,
+    SubmitWordResponse
+} from "spellbee";
 import parse from "csv-parse/lib/sync"
 
 export { score_word, is_pangram, generate_word_list, setup_game, calculate_max_score };
@@ -35,29 +42,29 @@ function load_games() {
     }
 }
 
-async function setup_game() {
+async function setup_game(request: StartGameRequest): Promise<GameState> {
     const gameNumber = Math.floor(Math.random() * GAMES.length);
     const outerLetters = GAMES[gameNumber].outer_letters;
     const middleLetter = GAMES[gameNumber].middle_letter;
     const validWords = generate_word_list(outerLetters.split(''), middleLetter);
     const maxScore = calculate_max_score(validWords, new Set([...outerLetters.split(''), middleLetter]));
-    const gameId = await create_game_row(outerLetters, middleLetter, validWords, maxScore);
-    const gameState: GameState = {
-        id: gameId,
-        middle_letter: middleLetter,
-        outer_letters: outerLetters,
-        found_words: [],
-        score: 0,
-        max_score: maxScore,
-        current_rank: get_current_rank(0, maxScore),
-        ranks: calculate_ranks(maxScore)
+
+    let gameDto: GameDto;
+    switch(request.game_type) {
+        case GameType.SINGLE_PLAYER:
+            gameDto = await create_game_row(outerLetters, middleLetter, validWords, maxScore, request.game_type);
+            break;
+        case GameType.COOP:
+        case GameType.COMPETITIVE:
+            gameDto = await create_game_row(outerLetters, middleLetter, validWords, maxScore, request.game_type, request.player_name);
+            break;
     }
-    return gameState;
+    return to_game_state(gameDto);
 }
 
-export async function handle_submit_word(gameId: number, word: string): Promise<SubmitWordResponse> {
+export async function handle_submit_word(gameId: number, word: string, playerName: string): Promise<SubmitWordResponse> {
     // TODO: make this a transaction
-    const game = await get_game_by_id(gameId);
+    const game: GameDto = await get_game_by_id(gameId);
 
     if (game.status === GAME_STATUS.ENDED) {
         return {
@@ -78,6 +85,7 @@ export async function handle_submit_word(gameId: number, word: string): Promise<
         const score = score_word(word, isPangram);
         game.found_words.push({word, is_pangram: isPangram});
         game.score += score;
+        game.scores[playerName] = game.scores[playerName] += score;
         const gameState: GameState = to_game_state(game);
         await update_row_after_word_found(gameState);
         return {
@@ -114,13 +122,15 @@ function get_words_from_words_objs(foundWords: GameWord[]) {
 function to_game_state(game: GameDto) {
     const gameState: GameState = {
         id: game.id,
+        game_type: game.game_type,
         middle_letter: game.middle_letter,
         outer_letters: game.outer_letters,
         found_words: game.found_words,
         score: game.score,
         max_score: game.max_score,
         current_rank: get_current_rank(game.score, game.max_score),
-        ranks: calculate_ranks(game.max_score)
+        ranks: calculate_ranks(game.max_score),
+        scores: game.scores
     }
     return gameState;
 }
