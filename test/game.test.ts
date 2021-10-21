@@ -36,10 +36,16 @@ describe('Validate game logic', () => {
     });
     it('validate that generate_word_list generates the correct words', () => {
         const valid_words = generate_word_list(["e", "c", "p", "o", "m", "l"], "t");
-        const expected = ['clot', 'collect', 'collet', 'colt', 'comet', 'compete', 'complete', 'compote', 'coot', 'cote', 'elect', 'emote', 'loot', 'meet', 'melt', 'mete', 'mettle', 'molt', 'moot', 'mote', 'motel', 'motet', 'mottle', 'motto', 'ocelot', 'octet', 'omelet', 'omelette', 'pellet', 'pelt', 'plot', 'poet', 'teem', 'teepee', 'telecom', 'tell', 'temp', 'temple', 'tempo', 'tempt', 'tepee', 'toll', 'tome', 'tool', 'toot', 'tootle', 'tope', 'topple', 'tote', 'totem'];
+        const expected_words = ['clot', 'collect', 'collet', 'colt', 'comet', 'compete', 'complete', 'compote', 'coot', 'cote', 'elect', 'emote', 'loot', 'meet', 'melt', 'mete', 'mettle', 'molt', 'moot', 'mote', 'motel', 'motet', 'mottle', 'motto', 'ocelot', 'octet', 'omelet', 'omelette', 'pellet', 'pelt', 'plot', 'poet', 'teem', 'teepee', 'telecom', 'tell', 'temp', 'temple', 'tempo', 'tempt', 'tepee', 'toll', 'tome', 'tool', 'toot', 'tootle', 'tope', 'topple', 'tote', 'totem'];
+        const expected = expected_words.map((word) => (
+            {
+                word: word,
+                is_pangram: word === "complete"
+            }));
         assert.equal(expected.length, valid_words.length);
         for (let i = 0 ; i < expected.length ; i++) {
-            assert.equal(expected[i], valid_words[i]);
+            assert.equal(expected[i].word, valid_words[i].word);
+            assert.equal(expected[i].is_pangram, valid_words[i].is_pangram);
         }
     });
     it("max score is calculated correctly", () => {

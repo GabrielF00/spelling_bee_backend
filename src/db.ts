@@ -1,13 +1,15 @@
 import {Pool, QueryResult} from "pg";
 import dotenv from "dotenv"
-import {GameWord, GameState, GameType, GAME_STATUS, PlayerScore, Player} from "spellbee";
+import {GameWord, GameState, GameType, GAME_STATUS, Player} from "spellbee";
 
-export { create_game_row, get_game_by_id, update_row_after_word_found, update_row_end_game };
+export { create_game_row, get_game_by_id, get_game_by_code, update_row_join_game, update_row_after_word_found, update_row_end_game };
 
-const SETUP_GAME_QUERY =  'INSERT INTO games(valid_words, middle_letter, outer_letters, max_score, game_type, scores) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *';
+const SETUP_GAME_QUERY =  'INSERT INTO games(valid_words, middle_letter, outer_letters, max_score, game_type, scores, game_code) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *';
 const GET_GAME_QUERY = 'SELECT * FROM games where id = $1';
-const SUBMIT_WORD_QUERY = 'UPDATE games SET found_words = $1, scores = $2 where id = $3';
-const END_GAME_QUERY = 'UPDATE games SET status = 1 where id = $1 RETURNING *';
+const GET_GAME_BY_CODE_QUERY = 'SELECT * FROM games WHERE game_code = $1';
+const SUBMIT_WORD_QUERY = 'UPDATE games SET found_words = $1, scores = $2, team_score = $3 where id = $4';
+const JOIN_GAME_QUERY = "UPDATE games SET scores = $1 WHERE id = $2 RETURNING *"
+const END_GAME_QUERY = 'UPDATE games SET status = 1 WHERE id = $1 RETURNING *';
 
 // represents a row in the DB
 export interface GameDto {
@@ -17,10 +19,11 @@ export interface GameDto {
     middle_letter: string,
     outer_letters: string,
     found_words: GameWord[],
-    score: number,
+    team_score: number,
     max_score: number,
     status: GAME_STATUS,
-    scores: Record<string, number>
+    scores: Record<string, number>,
+    game_code: string
 }
 
 dotenv.config()
@@ -36,10 +39,10 @@ pool.on('error', (err, client) => {
     console.error("Error: ", err)
 });
 
-async function create_game_row(outerLetters: string, middleLetter: string, validWords: GameWord[], maxScore: number, gameType: number, player: Player = ""): Promise<GameDto> {
+async function create_game_row(outerLetters: string, middleLetter: string, validWords: GameWord[], maxScore: number, gameType: number, gameCode: string, player: Player = ""): Promise<GameDto> {
     const playerScores: Record<string, number> = {};
     playerScores[player] = 0;
-    const result = await query(SETUP_GAME_QUERY, [JSON.stringify(validWords), middleLetter, outerLetters, maxScore, gameType, JSON.stringify(playerScores)]);
+    const result = await query(SETUP_GAME_QUERY, [JSON.stringify(validWords), middleLetter, outerLetters, maxScore, gameType, JSON.stringify(playerScores), gameCode]);
     return to_game_dto(result);
 }
 
@@ -48,8 +51,21 @@ async function get_game_by_id(id: number) {
     return to_game_dto(result);
 }
 
+async function get_game_by_code(gameCode: string) {
+    const result = await query(GET_GAME_BY_CODE_QUERY, [gameCode]);
+    return to_game_dto(result);
+}
+
 async function update_row_after_word_found(game: GameState) {
-    return await query(SUBMIT_WORD_QUERY, [JSON.stringify(game.found_words), JSON.stringify(game.scores), game.id]);
+    return await query(SUBMIT_WORD_QUERY, [JSON.stringify(game.found_words), JSON.stringify(game.scores), game.team_score, game.id]);
+}
+
+async function update_row_join_game(game: GameDto) {
+    const result = await query(JOIN_GAME_QUERY, [JSON.stringify(game.scores), game.id]);
+    if (result.rowCount !== 1) {
+        throw new RangeError("Game not found.");
+    }
+    return to_game_dto(result);
 }
 
 async function update_row_end_game(gameId: number) {
@@ -76,10 +92,11 @@ function to_game_dto(result: QueryResult) {
         middle_letter: row.middle_letter,
         outer_letters: row.outer_letters,
         found_words: Object.keys(row.found_words).length === 0 ? [] : row.found_words,
-        score: row.score,
+        team_score: row.team_score,
         max_score: row.max_score,
         status: row.status,
-        scores: row.scores
+        scores: row.scores,
+        game_code: row.game_code
     };
     return game;
 }

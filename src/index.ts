@@ -1,8 +1,15 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv"
-import {end_game, handle_submit_word, setup_game} from "./game";
-import {EndGameState, StartGameRequest, SubmitWordRequest, SubmitWordResponse} from "spellbee";
+import {end_game, handle_join_game, handle_submit_word, setup_game} from "./game";
+import {
+    EndGameState,
+    JoinGameRequest,
+    JoinGameResponse,
+    StartGameRequest,
+    SubmitWordRequest,
+    SubmitWordResponse
+} from "spellbee";
 
 dotenv.config();
 const app = express();
@@ -20,6 +27,12 @@ app.use(express.urlencoded({ extended: true }));
 app.post('/createGame', async (req, res) => {
     const request: StartGameRequest = req.body;
     const response = await setup_game(request);
+    res.json(response);
+});
+
+app.post('/joinGame', async (req, res) => {
+    const request: JoinGameRequest = req.body;
+    const response: JoinGameResponse = await handle_join_game(request.game_id, request.player_name);
     res.json(response);
 });
 
