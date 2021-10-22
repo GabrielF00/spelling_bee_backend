@@ -1,6 +1,6 @@
 import {Pool, QueryResult} from "pg";
 import dotenv from "dotenv"
-import {GameWord, GameState, GameType, GAME_STATUS, Player} from "spellbee";
+import {GameWord, GameState, GameType, GAME_STATUS, Player, MPGameWord} from "spellbee";
 
 export { create_game_row, get_game_by_id, get_game_by_code, update_row_join_game, update_row_after_word_found, update_row_end_game };
 
@@ -18,7 +18,7 @@ export interface GameDto {
     valid_words: GameWord[],
     middle_letter: string,
     outer_letters: string,
-    found_words: GameWord[],
+    found_words: MPGameWord[],
     team_score: number,
     max_score: number,
     status: GAME_STATUS,

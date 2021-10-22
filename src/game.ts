@@ -45,7 +45,7 @@ function load_games() {
 }
 
 async function setup_game(request: StartGameRequest): Promise<GameState> {
-    const gameNumber = getRandomInt(GAMES.length);
+    const gameNumber = get_random_int(GAMES.length);
     const outerLetters = GAMES[gameNumber].outer_letters;
     const middleLetter = GAMES[gameNumber].middle_letter;
     const validWords = generate_word_list(outerLetters.split(''), middleLetter);
@@ -72,6 +72,8 @@ export async function handle_join_game(gameCode: string, playerName: string): Pr
         return generate_failure_response("Game has ended.");
     } else if (game.game_type === 0) {
         return generate_failure_response("Cannot join single-player game.");
+    } else if (Object.keys(game.scores).length >= 4) {
+        return generate_failure_response("Game already has max number of players.");
     }
 
     game.scores[playerName] = 0;
@@ -109,17 +111,17 @@ export async function handle_submit_word(gameId: number, word: string, playerNam
             return generate_failure_response("Word already found");
         }
         const isPangram = is_pangram(word, new Set([...game.outer_letters, game.middle_letter]));
-        const score = score_word(word, isPangram);
-        game.found_words.push({word, is_pangram: isPangram});
-        game.team_score += score;
-        game.scores[playerName] = game.scores[playerName] += score;
+        const wordScore = score_word(word, isPangram);
+        game.found_words.push({word, is_pangram: isPangram, player: playerName});
+        game.team_score += wordScore;
+        game.scores[playerName] = game.scores[playerName] += wordScore;
         const gameState: GameState = to_game_state(game);
         await update_row_after_word_found(gameState);
         return {
             state: "success",
             response: {
                 word,
-                word_score: score,
+                word_score: wordScore,
                 is_pangram: isPangram,
                 game_state: gameState
             }
@@ -161,13 +163,13 @@ function to_game_state(game: GameDto) {
 
 function generate_game_code(): string {
     const nWords = DICT.length;
-    const w1 = DICT[getRandomInt(nWords)];
-    const w2 = DICT[getRandomInt(nWords)];
-    const w3 = DICT[getRandomInt(nWords)];
+    const w1 = DICT[get_random_int(nWords)];
+    const w2 = DICT[get_random_int(nWords)];
+    const w3 = DICT[get_random_int(nWords)];
     return w1 + "-" + w2 + "-" + w3;
 }
 
-function getRandomInt(max: number) {
+function get_random_int(max: number) {
     return Math.floor(Math.random() * max);
 }
 
