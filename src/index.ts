@@ -3,13 +3,14 @@ import cors from "cors";
 import dotenv from "dotenv"
 import {end_game, handle_join_game, handle_submit_word, setup_game} from "./game";
 import {
-    EndGameState,
+    EndGameState, GameUpdate,
     JoinGameRequest,
     JoinGameResponse,
     StartGameRequest,
     SubmitWordRequest,
     SubmitWordResponse
 } from "spellbee";
+import * as http from "http";
 
 dotenv.config();
 const app = express();
@@ -23,6 +24,8 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+const subscribers = new Map<string, http.ServerResponse>();
 
 app.post('/createGame', async (req, res) => {
     const request: StartGameRequest = req.body;
@@ -47,6 +50,34 @@ app.post('/endGame', async (req, res) => {
     const response: EndGameState = await end_game(gameId);
     res.json(response);
 })
+
+app.get('/subscribeToUpdates/game/:gameCode/player/:playerName', (req, res) => {
+    const gameCode = req.params.gameCode;
+    const playerName = req.params.playerName;
+    const headers = {
+        'Content-Type': 'text/event-stream',
+        'Connection': 'keep-alive',
+        'Cache-Control': 'no-cache'
+    };
+    res.writeHead(200, headers);
+    const data = `data: \n\n`;
+    res.write(data);
+    const clientId = gameCode + "-" + playerName;
+    subscribers.set(clientId, res);
+
+    req.on('close', () => {
+        console.log(`${clientId} connection closed`);
+        subscribers.delete(clientId);
+    });
+});
+
+export function update_subscribers(clientId: string, data: GameUpdate) {
+    if (!subscribers.has(clientId)) {
+        console.log(`No subscriber ${clientId}`);
+    } else {
+        subscribers.get(clientId).write(`data: ${JSON.stringify(data)}\n\n`);
+    }
+}
 
 // start the Express server
 app.listen( port, () => {

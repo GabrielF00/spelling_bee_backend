@@ -48,11 +48,17 @@ async function create_game_row(outerLetters: string, middleLetter: string, valid
 
 async function get_game_by_id(id: number) {
     const result = await query(GET_GAME_QUERY, [id]);
+    if (result.rowCount !== 1) {
+        throw new Error("Game not found.");
+    }
     return to_game_dto(result);
 }
 
 async function get_game_by_code(gameCode: string) {
     const result = await query(GET_GAME_BY_CODE_QUERY, [gameCode]);
+    if (result.rowCount !== 1) {
+        throw new Error("Game not found.");
+    }
     return to_game_dto(result);
 }
 
@@ -70,7 +76,6 @@ async function update_row_join_game(game: GameDto) {
 
 async function update_row_end_game(gameId: number) {
     const result = await query(END_GAME_QUERY, [gameId]);
-    console.log(result);
     return to_game_dto(result);
 }
 

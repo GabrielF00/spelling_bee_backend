@@ -11,13 +11,14 @@ import {
 import {
     EndGameState,
     GAME_STATUS,
-    GameState,
+    GameState, GameUpdate, GameUpdatePlayerJoined, GameUpdatePlayerLeft, GameUpdateWordFound,
     GameWord, JoinGameFailed,
-    JoinGameResponse,
+    JoinGameResponse, MPGameWord,
     StartGameRequest, SubmitWordFailed,
     SubmitWordResponse
 } from "spellbee";
 import parse from "csv-parse/lib/sync"
+import {update_subscribers} from "./index";
 
 export { score_word, is_pangram, generate_word_list, setup_game, calculate_max_score };
 
@@ -66,27 +67,32 @@ async function setup_game(request: StartGameRequest): Promise<GameState> {
 }
 
 export async function handle_join_game(gameCode: string, playerName: string): Promise<JoinGameResponse> {
-    const game: GameDto = await get_game_by_code(gameCode);
-
-    if (game.status === GAME_STATUS.ENDED) {
-        return generate_failure_response("Game has ended.");
-    } else if (game.game_type === 0) {
-        return generate_failure_response("Cannot join single-player game.");
-    } else if (Object.keys(game.scores).length >= 4) {
-        return generate_failure_response("Game already has max number of players.");
-    }
-
-    game.scores[playerName] = 0;
     try {
-        const updatedGameState = to_game_state(await update_row_join_game(game));
-        return {
-            state: "success",
-            response: {
-                game_state: updatedGameState
-            }
+        const game: GameDto = await get_game_by_code(gameCode);
+
+        if (game.status === GAME_STATUS.ENDED) {
+            return generate_failure_response("Game has ended.");
+        } else if (game.game_type === 0) {
+            return generate_failure_response("Cannot join single-player game.");
+        } else if (Object.keys(game.scores).length >= 4) {
+            return generate_failure_response("Game already has max number of players.");
         }
-    } catch(RangeError) {
-        return generate_failure_response("Game not found.")
+
+        game.scores[playerName] = 0;
+        try {
+            const updatedGameState = to_game_state(await update_row_join_game(game));
+            update_other_players_player_joined(updatedGameState, playerName);
+            return {
+                state: "success",
+                response: {
+                    game_state: updatedGameState
+                }
+            }
+        } catch (RangeError) {
+            return generate_failure_response("Game not found.");
+        }
+    } catch (err) {
+        return generate_failure_response(err.message);
     }
 }
 
@@ -112,11 +118,13 @@ export async function handle_submit_word(gameId: number, word: string, playerNam
         }
         const isPangram = is_pangram(word, new Set([...game.outer_letters, game.middle_letter]));
         const wordScore = score_word(word, isPangram);
-        game.found_words.push({word, is_pangram: isPangram, player: playerName});
+        const foundWordObj = {word, is_pangram: isPangram, player: playerName, score: wordScore};
+        game.found_words.push(foundWordObj);
         game.team_score += wordScore;
         game.scores[playerName] = game.scores[playerName] += wordScore;
         const gameState: GameState = to_game_state(game);
         await update_row_after_word_found(gameState);
+        update_other_players_word_found(gameState, playerName, foundWordObj);
         return {
             state: "success",
             response: {
@@ -128,6 +136,46 @@ export async function handle_submit_word(gameId: number, word: string, playerNam
         };
     } else {
         return generate_failure_response("Invalid word");
+    }
+}
+
+async function update_other_players_word_found(game: GameState, playerName: string, foundWord: MPGameWord) {
+    const data: GameUpdateWordFound = {
+        type: "word_found",
+        update: {
+            found_word: foundWord,
+            finder_score: game.scores[playerName],
+            team_score: game.team_score,
+            current_rank: game.current_rank
+        }
+    }
+    update_other_players(game, playerName, data);
+}
+
+async function update_other_players_player_joined(game: GameState, playerName: string) {
+    const message: GameUpdatePlayerJoined = {
+        type: "player_joined",
+        update: {
+            player_name: playerName
+        }
+    }
+    update_other_players(game, playerName, message);
+}
+
+async function update_other_players_player_left(game: GameState, playerName: string) {
+    const message: GameUpdatePlayerLeft = {
+        type: "player_left",
+        update: {
+            player_name: playerName
+        }
+    }
+    update_other_players(game, playerName, message);
+}
+
+async function update_other_players(game: GameState, playerName: string, message: GameUpdate) {
+    const otherPlayers = Object.keys(game.scores).filter(player => player !== playerName);
+    for (const player of otherPlayers) {
+        update_subscribers(`${game.game_code}-${player}`, message);
     }
 }
 
@@ -156,7 +204,8 @@ function to_game_state(game: GameDto) {
         max_score: game.max_score,
         current_rank: get_current_rank(game.team_score, game.max_score),
         ranks: calculate_ranks(game.max_score),
-        scores: game.scores
+        scores: game.scores,
+        game_code: game.game_code
     }
     return gameState;
 }
