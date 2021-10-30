@@ -76,6 +76,8 @@ export async function handle_join_game(gameCode: string, playerName: string): Pr
             return generate_failure_response("Cannot join single-player game.");
         } else if (Object.keys(game.scores).length >= 4) {
             return generate_failure_response("Game already has max number of players.");
+        } else if (Object.keys(game.scores).some(e => e === playerName)) {
+            return generate_failure_response(`${playerName} is already in the game.`);
         }
 
         game.scores[playerName] = 0;
