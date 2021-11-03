@@ -191,6 +191,18 @@ export async function end_game(gameId: number): Promise<EndGameState> {
     };
 }
 
+export async function leave_game(gameId: number, playerName: string) {
+    const game: GameDto = await get_game_by_id(gameId);
+    const gameState: GameState = to_game_state(game);
+    update_other_players_player_left(gameState, playerName);
+    return {
+        response: {
+            game_state: gameState,
+            all_words: game.valid_words
+        }
+    }
+}
+
 function get_words_from_words_objs(foundWords: GameWord[]) {
     return foundWords.map(fw => fw.word);
 }

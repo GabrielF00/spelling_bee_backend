@@ -1,8 +1,9 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv"
-import {end_game, handle_join_game, handle_submit_word, setup_game} from "./game";
+import {end_game, handle_join_game, handle_submit_word, leave_game, setup_game} from "./game";
 import {
+    EndGameRequest,
     EndGameState, GameUpdate,
     JoinGameRequest,
     JoinGameResponse,
@@ -48,6 +49,12 @@ app.post('/submitWord', async (req, res) => {
 app.post('/endGame', async (req, res) => {
     const gameId = req.body.gameId;
     const response: EndGameState = await end_game(gameId);
+    res.json(response);
+})
+
+app.post('/leaveGame', async (req, res) => {
+    const request: EndGameRequest = req.body;
+    const response: EndGameState = await leave_game(request.gameId, request.player_name);
     res.json(response);
 })
 
