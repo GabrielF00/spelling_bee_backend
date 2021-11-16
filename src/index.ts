@@ -1,12 +1,12 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv"
-import {end_game, handle_join_game, handle_submit_word, leave_game, setup_game} from "./game";
+import {end_game, handle_join_game, handle_rejoin_game, handle_submit_word, leave_game, setup_game} from "./game";
 import {
     EndGameRequest,
     EndGameState, GameUpdate,
     JoinGameRequest,
-    JoinGameResponse,
+    JoinGameResponse, RejoinGameRequest, RejoinGameResponse,
     StartGameRequest,
     SubmitWordRequest,
     SubmitWordResponse
@@ -40,6 +40,12 @@ app.post('/joinGame', async (req, res) => {
     res.json(response);
 });
 
+app.post('/rejoinGame', async (req, res) => {
+    const request: RejoinGameRequest = req.body;
+    const response: RejoinGameResponse = await handle_rejoin_game(request.game_type, request.game_id, request.player_name);
+    res.json(response);
+})
+
 app.post('/submitWord', async (req, res) => {
     const request: SubmitWordRequest = req.body;
     const response: SubmitWordResponse = await handle_submit_word(request.gameId, request.word, request.player_name);
@@ -50,13 +56,13 @@ app.post('/endGame', async (req, res) => {
     const gameId = req.body.gameId;
     const response: EndGameState = await end_game(gameId);
     res.json(response);
-})
+});
 
 app.post('/leaveGame', async (req, res) => {
     const request: EndGameRequest = req.body;
     const response: EndGameState = await leave_game(request.gameId, request.player_name);
     res.json(response);
-})
+});
 
 app.get('/subscribeToUpdates/game/:gameCode/player/:playerName', (req, res) => {
     const gameCode = req.params.gameCode;

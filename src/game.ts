@@ -11,10 +11,19 @@ import {
 import {
     EndGameState,
     GAME_STATUS,
-    GameState, GameUpdate, GameUpdatePlayerJoined, GameUpdatePlayerLeft, GameUpdateWordFound,
-    GameWord, JoinGameFailed,
-    JoinGameResponse, MPGameWord,
-    StartGameRequest, SubmitWordFailed,
+    GameState,
+    GameType,
+    GameUpdate,
+    GameUpdatePlayerJoined,
+    GameUpdatePlayerLeft,
+    GameUpdatePlayerRejoined,
+    GameUpdateWordFound,
+    GameWord,
+    JoinGameFailed,
+    JoinGameResponse,
+    MPGameWord, RejoinGameResponse,
+    StartGameRequest,
+    SubmitWordFailed,
     SubmitWordResponse
 } from "spellbee";
 import parse from "csv-parse/lib/sync"
@@ -24,6 +33,8 @@ export { score_word, is_pangram, generate_word_list, setup_game, calculate_max_s
 
 const DICT = load_dict();
 const GAMES = load_games();
+
+const GAME_TYPE_SINGLE_PLAYER = 0;
 
 const RANKS = new Map([[0, "EGG"], [0.1, "LARVA"], [0.2, "PUPA"], [0.3, "WORKER"], [0.4, "DRONE"],
     [0.5, "POLLINATOR"], [0.75, "GENIUS"], [1, "QUEEN"]]);
@@ -72,7 +83,7 @@ export async function handle_join_game(gameCode: string, playerName: string): Pr
 
         if (game.status === GAME_STATUS.ENDED) {
             return generate_failure_response("Game has ended.");
-        } else if (game.game_type === 0) {
+        } else if (game.game_type === GAME_TYPE_SINGLE_PLAYER) {
             return generate_failure_response("Cannot join single-player game.");
         } else if (Object.keys(game.scores).length >= 4) {
             return generate_failure_response("Game already has max number of players.");
@@ -95,6 +106,27 @@ export async function handle_join_game(gameCode: string, playerName: string): Pr
         }
     } catch (err) {
         return generate_failure_response(err.message);
+    }
+}
+
+export async function handle_rejoin_game(gameType: GameType, gameId: number, playerName: string): Promise<RejoinGameResponse> {
+    try {
+        const game: GameDto = await get_game_by_id(gameId);
+        const gameState: GameState = to_game_state(game);
+        if (gameType !== GAME_TYPE_SINGLE_PLAYER) {
+            update_other_players_player_rejoined(gameState, playerName);
+        }
+        return {
+            state: "success",
+            response: {
+                game_state: gameState
+            }
+        }
+    } catch (err) {
+        return {
+            state: "failed",
+            error_message: err.message
+        }
     }
 }
 
@@ -157,6 +189,16 @@ async function update_other_players_word_found(game: GameState, playerName: stri
 async function update_other_players_player_joined(game: GameState, playerName: string) {
     const message: GameUpdatePlayerJoined = {
         type: "player_joined",
+        update: {
+            player_name: playerName
+        }
+    }
+    update_other_players(game, playerName, message);
+}
+
+async function update_other_players_player_rejoined(game: GameState, playerName: string) {
+    const message: GameUpdatePlayerRejoined = {
+        type: "player_rejoined",
         update: {
             player_name: playerName
         }
